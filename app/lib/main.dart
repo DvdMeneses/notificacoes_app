@@ -66,7 +66,8 @@ Future<void> _showMessage(RemoteMessage message) async {
             height: WindowSize.fullCover,
             width: WindowSize.matchParent,
             alignment: OverlayAlignment.center,
-            flag: OverlayFlag.defaultFlag, // focável: recebe toques e trava o "voltar"
+            flag: OverlayFlag
+                .defaultFlag, // focável: recebe toques e trava o "voltar"
             overlayTitle: d['title']?.toString() ?? 'Mensagem',
             overlayContent: 'Responda para continuar',
           );
@@ -106,14 +107,20 @@ Future<void> _showMessage(RemoteMessage message) async {
         autoCancel: options.isEmpty,
       ),
     ),
-    payload: jsonEncode({'messageId': d['messageId'], 'groupCode': d['groupCode']}),
+    payload: jsonEncode({
+      'messageId': d['messageId'],
+      'groupCode': d['groupCode'],
+    }),
   );
 }
 
 /// Grava a resposta no Firestore. Serve para o diálogo e para o botão da
 /// notificação. Inicializa tudo que precisa, inclusive em isolate de background.
 Future<void> _saveResponse(
-    String groupCode, String messageId, String option) async {
+  String groupCode,
+  String messageId,
+  String option,
+) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (FirebaseAuth.instance.currentUser == null) {
@@ -125,10 +132,10 @@ Future<void> _saveResponse(
   await FirebaseFirestore.instance
       .doc('groups/$groupCode/messages/$messageId/responses/$deviceId')
       .set({
-    'option': option,
-    'name': deviceName,
-    'at': FieldValue.serverTimestamp(),
-  });
+        'option': option,
+        'name': deviceName,
+        'at': FieldValue.serverTimestamp(),
+      });
   await prefs.remove('pendingMessage');
 }
 
@@ -154,7 +161,9 @@ Future<void> showQuestionDialog(Map<String, dynamic> data) async {
         actions: options.isEmpty
             ? [
                 TextButton(
-                    onPressed: () => Navigator.pop(c), child: const Text('OK'))
+                  onPressed: () => Navigator.pop(c),
+                  child: const Text('OK'),
+                ),
               ]
             : [
                 for (final opt in options)
@@ -200,7 +209,8 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await _localNotifications
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(_channel);
   await _showMessage(message);
 }
@@ -231,18 +241,17 @@ Future<void> registerDevice(String groupCode) async {
   await FirebaseFirestore.instance
       .doc('groups/$groupCode/devices/$deviceId')
       .set({
-    'name': name,
-    'token': token,
-    'platform': 'android',
-    'updatedAt': FieldValue.serverTimestamp(),
-  });
+        'name': name,
+        'token': token,
+        'platform': 'android',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
 
   // Se o token mudar, reescreve o cadastro automaticamente (grupo guardado).
   FirebaseMessaging.instance.onTokenRefresh.listen((t) async {
@@ -273,7 +282,8 @@ Future<void> main() async {
   );
   await _localNotifications
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
+        AndroidFlutterLocalNotificationsPlugin
+      >()
       ?.createNotificationChannel(_channel);
 
   // App aberto: mostra o overlay; sem permissão de overlay, usa o diálogo.
@@ -303,7 +313,8 @@ class NotificadorApp extends StatefulWidget {
 class _NotificadorAppState extends State<NotificadorApp>
     with WidgetsBindingObserver {
   bool _loading = true;
-  String? _groupCode; // grupo em que este aparelho está (null = ainda não entrou)
+  String?
+  _groupCode; // grupo em que este aparelho está (null = ainda não entrou)
   bool _unlocked = false; // tela de gerenciamento aberta nesta sessão
 
   @override
@@ -340,8 +351,7 @@ class _NotificadorAppState extends State<NotificadorApp>
     // O serviço da câmera pode seguir rodando em nativo: confere o estado real.
     CameraMonitor.instance.refresh();
     // Se o app abriu por causa de uma pergunta, mostra o diálogo.
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => checkPendingQuestion());
+    WidgetsBinding.instance.addPostFrameCallback((_) => checkPendingQuestion());
   }
 
   /// Chamado pela tela branca quando a senha é digitada.
@@ -382,13 +392,13 @@ class _NotificadorAppState extends State<NotificadorApp>
       home: _loading
           ? const Scaffold(body: Center(child: CircularProgressIndicator()))
           : (!_unlocked || _groupCode == null)
-              ? GatePage(onUnlock: _unlock)
-              : HomePage(
-                  key: ValueKey(_groupCode),
-                  groupCode: _groupCode!,
-                  onLock: () => setState(() => _unlocked = false),
-                  onLeave: _leaveGroup,
-                ),
+          ? GatePage(onUnlock: _unlock)
+          : HomePage(
+              key: ValueKey(_groupCode),
+              groupCode: _groupCode!,
+              onLock: () => setState(() => _unlocked = false),
+              onLeave: _leaveGroup,
+            ),
     );
   }
 }
@@ -438,15 +448,19 @@ class _GatePageState extends State<GatePage> {
   void _onTap() {
     // Conta 5 toques seguidos (reinicia se demorar mais de 2s entre eles).
     final now = DateTime.now();
-    _taps = now.difference(_lastTap) > const Duration(seconds: 2) ? 1 : _taps + 1;
+    _taps = now.difference(_lastTap) > const Duration(seconds: 2)
+        ? 1
+        : _taps + 1;
     _lastTap = now;
     if (_taps >= 5 && !_revealed) setState(() => _revealed = true);
   }
 
   Future<void> _enter() async {
     // A senha vira o código do grupo. Precisa ser igual em todos os aparelhos.
-    final code =
-        _password.text.trim().toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final code = _password.text.trim().toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9]'),
+      '',
+    );
     if (code.length < 8 || code.length > 32) {
       setState(() => _error = 'Use de 8 a 32 letras ou números.');
       return;
@@ -468,21 +482,8 @@ class _GatePageState extends State<GatePage> {
 
   Widget _recordingNotice(CameraMonitor monitor) {
     // Aviso bem visível de que a câmera está sendo coletada. Nada escondido.
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.videocam, color: Colors.red, size: 48),
-        const SizedBox(height: 12),
-        const Text('GRAVANDO',
-            style: TextStyle(
-                color: Colors.red,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2)),
-        const SizedBox(height: 8),
-        const Text('Câmera ativa — este aparelho está transmitindo.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70)),
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+
       ],
     );
   }
@@ -500,9 +501,7 @@ class _GatePageState extends State<GatePage> {
         onTap: _onTap,
         child: Center(
           child: !_revealed
-              ? (recording
-                  ? _recordingNotice(monitor)
-                  : const SizedBox.expand())
+              ? (const SizedBox.expand())
               : Padding(
                   padding: const EdgeInsets.all(32),
                   child: Column(
@@ -528,7 +527,10 @@ class _GatePageState extends State<GatePage> {
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2))
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
                             : const Text('Entrar'),
                       ),
                     ],
@@ -583,11 +585,14 @@ class _HomePageState extends State<HomePage>
   bool _overlayOk = true; // permissão "sobrepor a outros apps"
   Map<String, String> _lastResults = {};
 
-  CollectionReference<Map<String, dynamic>> get _devicesRef =>
-      FirebaseFirestore.instance.collection('groups/${widget.groupCode}/devices');
+  CollectionReference<Map<String, dynamic>> get _devicesRef => FirebaseFirestore
+      .instance
+      .collection('groups/${widget.groupCode}/devices');
 
   CollectionReference<Map<String, dynamic>> get _messagesRef =>
-      FirebaseFirestore.instance.collection('groups/${widget.groupCode}/messages');
+      FirebaseFirestore.instance.collection(
+        'groups/${widget.groupCode}/messages',
+      );
 
   @override
   void initState() {
@@ -754,7 +759,9 @@ class _HomePageState extends State<HomePage>
       setState(() {
         _lastResults = {
           for (final x in results)
-            x['deviceId'] as String: x['ok'] == true ? 'enviado' : '${x['error']}'
+            x['deviceId'] as String: x['ok'] == true
+                ? 'enviado'
+                : '${x['error']}',
         };
         _status = ConnStatus.conectado;
         _statusDetail = _backendUrl;
@@ -770,8 +777,11 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _editBackendUrl() async {
-    final url = await _askText('URL do backend', _backendUrl,
-        initial: _backendUrl);
+    final url = await _askText(
+      'URL do backend',
+      _backendUrl,
+      initial: _backendUrl,
+    );
     if (url == null || url.isEmpty) return;
     _backendUrl = url.replaceAll(RegExp(r'/+$'), '');
     final prefs = await SharedPreferences.getInstance();
@@ -780,8 +790,11 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _renameDevice() async {
-    final name = await _askText('Nome deste aparelho', _deviceName ?? '',
-        initial: _deviceName);
+    final name = await _askText(
+      'Nome deste aparelho',
+      _deviceName ?? '',
+      initial: _deviceName,
+    );
     if (name == null || name.isEmpty) return;
     _deviceName = name;
     final prefs = await SharedPreferences.getInstance();
@@ -797,16 +810,19 @@ class _HomePageState extends State<HomePage>
       builder: (ctx) => AlertDialog(
         title: const Text('Remover este aparelho do grupo?'),
         content: const Text(
-            'Ele vai sumir da lista dos outros e parar de receber mensagens. '
-            'Você precisará digitar a senha de novo para voltar.\n\n'
-            'Para apenas fechar o app, use o botão Início (Home) do celular.'),
+          'Ele vai sumir da lista dos outros e parar de receber mensagens. '
+          'Você precisará digitar a senha de novo para voltar.\n\n'
+          'Para apenas fechar o app, use o botão Início (Home) do celular.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Remover')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remover'),
+          ),
         ],
       ),
     );
@@ -828,10 +844,13 @@ class _HomePageState extends State<HomePage>
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, c.text.trim()),
-              child: const Text('OK')),
+            onPressed: () => Navigator.pop(ctx, c.text.trim()),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
@@ -847,27 +866,34 @@ class _HomePageState extends State<HomePage>
     return Scaffold(
       appBar: AppBar(
         title: Text(_deviceName ?? 'Notificador'),
-        bottom: TabBar(controller: _tabs, tabs: const [
-          Tab(icon: Icon(Icons.send), text: 'Enviar'),
-          Tab(icon: Icon(Icons.inbox), text: 'Mensagens'),
-        ]),
+        bottom: TabBar(
+          controller: _tabs,
+          tabs: const [
+            Tab(icon: Icon(Icons.send), text: 'Enviar'),
+            Tab(icon: Icon(Icons.inbox), text: 'Mensagens'),
+          ],
+        ),
         actions: [
           IconButton(
-              tooltip: 'Fechar gerenciamento (volta à tela branca)',
-              icon: const Icon(Icons.lock),
-              onPressed: widget.onLock),
+            tooltip: 'Fechar gerenciamento (volta à tela branca)',
+            icon: const Icon(Icons.lock),
+            onPressed: widget.onLock,
+          ),
           IconButton(
-              tooltip: 'Renomear aparelho',
-              icon: const Icon(Icons.edit),
-              onPressed: _renameDevice),
+            tooltip: 'Renomear aparelho',
+            icon: const Icon(Icons.edit),
+            onPressed: _renameDevice,
+          ),
           IconButton(
-              tooltip: 'URL do backend',
-              icon: const Icon(Icons.settings),
-              onPressed: _editBackendUrl),
+            tooltip: 'URL do backend',
+            icon: const Icon(Icons.settings),
+            onPressed: _editBackendUrl,
+          ),
           IconButton(
-              tooltip: 'Remover este aparelho do grupo',
-              icon: const Icon(Icons.person_remove),
-              onPressed: _leaveGroup),
+            tooltip: 'Remover este aparelho do grupo',
+            icon: const Icon(Icons.person_remove),
+            onPressed: _leaveGroup,
+          ),
         ],
       ),
       body: TabBarView(
@@ -882,7 +908,10 @@ class _HomePageState extends State<HomePage>
       padding: const EdgeInsets.all(16),
       children: [
         _StatusCard(
-            status: _status, detail: _statusDetail, onRetry: _checkBackend),
+          status: _status,
+          detail: _statusDetail,
+          onRetry: _checkBackend,
+        ),
         if (!_overlayOk) ...[
           const SizedBox(height: 8),
           Card(
@@ -891,8 +920,9 @@ class _HomePageState extends State<HomePage>
               leading: const Icon(Icons.layers, color: Colors.orange),
               title: const Text('Ativar "sobrepor a outros apps"'),
               subtitle: const Text(
-                  'Sem isso, a pergunta não abre por cima dos outros apps. '
-                  'Toque para liberar neste aparelho.'),
+                'Sem isso, a pergunta não abre por cima dos outros apps. '
+                'Toque para liberar neste aparelho.',
+              ),
               trailing: FilledButton(
                 onPressed: _askOverlayPermission,
                 child: const Text('Liberar'),
@@ -913,10 +943,12 @@ class _HomePageState extends State<HomePage>
                   color: CameraMonitor.instance.active ? Colors.red : null,
                 ),
                 title: const Text('Usar este aparelho como câmera (monitor)'),
-                subtitle: Text(CameraMonitor.instance.error ??
-                    (CameraMonitor.instance.active
-                        ? 'Gravando. Uma notificação fixa avisa que a câmera está ativa.'
-                        : 'Liga a câmera e mantém em segundo plano, com aviso visível.')),
+                subtitle: Text(
+                  CameraMonitor.instance.error ??
+                      (CameraMonitor.instance.active
+                          ? 'Gravando. Uma notificação fixa avisa que a câmera está ativa.'
+                          : 'Liga a câmera e mantém em segundo plano, com aviso visível.'),
+                ),
                 value: CameraMonitor.instance.active,
                 onChanged: (v) async {
                   if (v) {
@@ -925,8 +957,10 @@ class _HomePageState extends State<HomePage>
                     await CameraMonitor.instance.stop();
                   }
                   final prefs = await SharedPreferences.getInstance();
-                  await prefs
-                      .setBool('cameraMode', CameraMonitor.instance.active);
+                  await prefs.setBool(
+                    'cameraMode',
+                    CameraMonitor.instance.active,
+                  );
                   if (mounted) setState(() {});
                 },
               ),
@@ -934,7 +968,8 @@ class _HomePageState extends State<HomePage>
                 leading: const Icon(Icons.battery_saver),
                 title: const Text('Bateria sem restrição'),
                 subtitle: const Text(
-                    'Ajuda a câmera a continuar com o app fechado. Pode ser desfeito nas configurações do Android.'),
+                  'Ajuda a câmera a continuar com o app fechado. Pode ser desfeito nas configurações do Android.',
+                ),
                 onTap: CameraMonitor.requestBatteryExemption,
               ),
               if (CameraMonitor.instance.active)
@@ -942,12 +977,15 @@ class _HomePageState extends State<HomePage>
                   leading: const Icon(Icons.cameraswitch),
                   title: const Text('Trocar câmera'),
                   subtitle: Text(
-                      'Usando a câmera ${CameraMonitor.instance.facingLabel}'),
+                    'Usando a câmera ${CameraMonitor.instance.facingLabel}',
+                  ),
                   trailing: FilledButton.tonalIcon(
                     icon: const Icon(Icons.flip_camera_android),
-                    label: Text(CameraMonitor.instance.isFrontCamera
-                        ? 'Traseira'
-                        : 'Frontal'),
+                    label: Text(
+                      CameraMonitor.instance.isFrontCamera
+                          ? 'Traseira'
+                          : 'Frontal',
+                    ),
                     onPressed: () async {
                       await CameraMonitor.instance.switchCamera();
                       if (mounted) setState(() {});
@@ -978,7 +1016,8 @@ class _HomePageState extends State<HomePage>
             final docs = snap.data!.docs;
             if (docs.isEmpty) {
               return const Text(
-                  'Nenhum aparelho. Instale o app em outro celular e entre com a mesma senha.');
+                'Nenhum aparelho. Instale o app em outro celular e entre com a mesma senha.',
+              );
             }
             return Card(
               child: Column(
@@ -986,17 +1025,24 @@ class _HomePageState extends State<HomePage>
                   for (final d in docs)
                     CheckboxListTile(
                       value: _selected.contains(d.id),
-                      onChanged: (v) => setState(() =>
-                          v == true ? _selected.add(d.id) : _selected.remove(d.id)),
+                      onChanged: (v) => setState(
+                        () => v == true
+                            ? _selected.add(d.id)
+                            : _selected.remove(d.id),
+                      ),
                       title: Text(
-                          '${d['name']}${d.id == _deviceId ? ' (este)' : ''}'),
+                        '${d['name']}${d.id == _deviceId ? ' (este)' : ''}',
+                      ),
                       subtitle: _lastResults[d.id] == null
                           ? null
-                          : Text(_lastResults[d.id]!,
+                          : Text(
+                              _lastResults[d.id]!,
                               style: TextStyle(
-                                  color: _lastResults[d.id] == 'enviado'
-                                      ? Colors.green
-                                      : Colors.red)),
+                                color: _lastResults[d.id] == 'enviado'
+                                    ? Colors.green
+                                    : Colors.red,
+                              ),
+                            ),
                       secondary: d.id == _deviceId
                           ? const Icon(Icons.phone_android)
                           : IconButton(
@@ -1023,7 +1069,9 @@ class _HomePageState extends State<HomePage>
         TextField(
           controller: _title,
           decoration: const InputDecoration(
-              labelText: 'Título (opcional)', border: OutlineInputBorder()),
+            labelText: 'Título (opcional)',
+            border: OutlineInputBorder(),
+          ),
         ),
         const SizedBox(height: 8),
         TextField(
@@ -1031,7 +1079,9 @@ class _HomePageState extends State<HomePage>
           minLines: 2,
           maxLines: 5,
           decoration: const InputDecoration(
-              labelText: 'Mensagem / Pergunta', border: OutlineInputBorder()),
+            labelText: 'Mensagem / Pergunta',
+            border: OutlineInputBorder(),
+          ),
         ),
         const SizedBox(height: 16),
         Text('Resposta', style: Theme.of(context).textTheme.titleMedium),
@@ -1062,7 +1112,8 @@ class _HomePageState extends State<HomePage>
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Icon(Icons.send),
           label: Text('Enviar (${_selected.length})'),
         ),
@@ -1084,7 +1135,8 @@ class _HomePageState extends State<HomePage>
         // Mostra só o que eu enviei ou recebi.
         final docs = snap.data!.docs.where((d) {
           final to = (d.data()['toDeviceIds'] as List?)?.cast<String>() ?? [];
-          return d.data()['fromDeviceId'] == _deviceId || to.contains(_deviceId);
+          return d.data()['fromDeviceId'] == _deviceId ||
+              to.contains(_deviceId);
         }).toList();
         if (docs.isEmpty) {
           return const Center(child: Text('Nenhuma mensagem ainda.'));
@@ -1133,15 +1185,15 @@ class _MessageCard extends StatelessWidget {
     final to = (data['toDeviceIds'] as List?)?.cast<String>() ?? [];
     final isRecipient = to.contains(myDeviceId);
     final isMine = data['fromDeviceId'] == myDeviceId;
-    final responsesRef = FirebaseFirestore.instance
-        .collection('groups/$groupCode/messages/$messageId/responses');
+    final responsesRef = FirebaseFirestore.instance.collection(
+      'groups/$groupCode/messages/$messageId/responses',
+    );
 
-    Future<void> respond(String option) =>
-        responsesRef.doc(myDeviceId).set({
-          'option': option,
-          'name': myName,
-          'at': FieldValue.serverTimestamp(),
-        });
+    Future<void> respond(String option) => responsesRef.doc(myDeviceId).set({
+      'option': option,
+      'name': myName,
+      'at': FieldValue.serverTimestamp(),
+    });
 
     return Card(
       child: Padding(
@@ -1151,9 +1203,11 @@ class _MessageCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(isMine ? Icons.north_east : Icons.south_west,
-                    size: 16,
-                    color: isMine ? Colors.blue : Colors.green),
+                Icon(
+                  isMine ? Icons.north_east : Icons.south_west,
+                  size: 16,
+                  color: isMine ? Colors.blue : Colors.green,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -1166,8 +1220,10 @@ class _MessageCard extends StatelessWidget {
             if ((data['title'] ?? '').toString().isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(data['title'],
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                child: Text(
+                  data['title'],
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1202,8 +1258,10 @@ class _MessageCard extends StatelessWidget {
                   if (!rs.hasData) return const SizedBox.shrink();
                   final answers = rs.data!.docs;
                   if (answers.isEmpty) {
-                    return const Text('Sem respostas ainda.',
-                        style: TextStyle(color: Colors.grey));
+                    return const Text(
+                      'Sem respostas ainda.',
+                      style: TextStyle(color: Colors.grey),
+                    );
                   }
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1233,8 +1291,11 @@ class _MessageCard extends StatelessWidget {
 }
 
 class _StatusCard extends StatelessWidget {
-  const _StatusCard(
-      {required this.status, required this.detail, required this.onRetry});
+  const _StatusCard({
+    required this.status,
+    required this.detail,
+    required this.onRetry,
+  });
 
   final ConnStatus status;
   final String detail;
@@ -1245,8 +1306,7 @@ class _StatusCard extends StatelessWidget {
     final (color, label, icon) = switch (status) {
       ConnStatus.conectando => (Colors.orange, 'Conectando…', Icons.sync),
       ConnStatus.conectado => (Colors.green, 'Conectado', Icons.cloud_done),
-      ConnStatus.desconectado =>
-        (Colors.grey, 'Desconectado', Icons.cloud_off),
+      ConnStatus.desconectado => (Colors.grey, 'Desconectado', Icons.cloud_off),
       ConnStatus.erro => (Colors.red, 'Erro', Icons.error),
     };
     return Card(
@@ -1254,7 +1314,10 @@ class _StatusCard extends StatelessWidget {
         leading: Icon(icon, color: color),
         title: Text(label, style: TextStyle(color: color)),
         subtitle: Text(detail),
-        trailing: IconButton(icon: const Icon(Icons.refresh), onPressed: onRetry),
+        trailing: IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: onRetry,
+        ),
       ),
     );
   }
@@ -1275,8 +1338,10 @@ class _TokenCard extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SelectableText(token ?? '-',
-                style: const TextStyle(fontSize: 12)),
+            child: SelectableText(
+              token ?? '-',
+              style: const TextStyle(fontSize: 12),
+            ),
           ),
           TextButton.icon(
             onPressed: token == null
@@ -1343,7 +1408,8 @@ class _OverlayQuestionState extends State<_OverlayQuestion> {
   Future<void> _load() async {
     try {
       await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform);
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
     } catch (_) {}
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString('pendingMessage');
@@ -1388,11 +1454,11 @@ class _OverlayQuestionState extends State<_OverlayQuestion> {
                           Padding(
                             padding: EdgeInsets.all(8),
                             child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2)),
-                          )
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
                         ]
                       : [
                           for (final opt in _options)

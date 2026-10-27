@@ -1,6 +1,8 @@
 package com.notificador.notificador
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentChange
 import com.google.firebase.firestore.DocumentReference
@@ -46,9 +48,35 @@ class CameraSession(
     private var facing = "environment"
     private var callsRegistration: ListenerRegistration? = null
     private val peers = HashMap<String, Peer>()
+    private val main = Handler(Looper.getMainLooper())
+
+    @Volatile
+    private var active = false
+
+    @Volatile
+    private var cameraOpen = false
+
+    // Quando outro app toma a câmera, tenta reabrir a cada poucos segundos até conseguir.
+    private val reopen = object : Runnable {
+        override fun run() {
+            val cam = capturer ?: return
+            if (!active || cameraOpen) return
+            try {
+                cam.startCapture(1280, 720, 30)
+            } catch (_: Exception) {
+            }
+            main.postDelayed(this, REOPEN_DELAY_MS)
+        }
+    }
+
+    private fun scheduleReopen() {
+        main.removeCallbacks(reopen)
+        main.postDelayed(reopen, REOPEN_DELAY_MS)
+    }
 
     fun start(initialFacing: String) {
         facing = initialFacing
+        active = true
         PeerConnectionFactory.initialize(
             PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions()
         )
@@ -65,8 +93,32 @@ class CameraSession(
         val name = enumerator.deviceNames.firstOrNull { enumerator.isFrontFacing(it) == wantFront }
             ?: enumerator.deviceNames.firstOrNull()
             ?: throw IllegalStateException("Nenhuma câmera encontrada")
-        val cam = enumerator.createCapturer(name, null)
-            ?: throw IllegalStateException("Não consegui abrir a câmera")
+        val cam = enumerator.createCapturer(name, object : CameraVideoCapturer.CameraEventsHandler {
+            override fun onCameraOpening(cameraName: String?) {
+                cameraOpen = true
+            }
+
+            override fun onCameraClosed() {
+                cameraOpen = false
+                scheduleReopen()
+            }
+
+            override fun onCameraDisconnected() {
+                cameraOpen = false
+                scheduleReopen()
+            }
+
+            override fun onCameraError(errorDescription: String?) {
+                cameraOpen = false
+                scheduleReopen()
+            }
+
+            override fun onCameraFreezed(errorDescription: String?) {
+                scheduleReopen()
+            }
+
+            override fun onFirstFrameAvailable() {}
+        }) ?: throw IllegalStateException("Não consegui abrir a câmera")
         capturer = cam
 
         val helper = SurfaceTextureHelper.create("CaptureThread", egl.eglBaseContext)
@@ -98,6 +150,8 @@ class CameraSession(
     }
 
     fun stop() {
+        active = false
+        main.removeCallbacks(reopen)
         callsRegistration?.remove()
         callsRegistration = null
         peers.values.forEach { it.close() }
@@ -233,6 +287,7 @@ class CameraSession(
     companion object {
         private const val STUN_URL = "stun:stun.l.google.com:19302"
         private const val ANSWER_TIMEOUT_MS = 20_000L
+        private const val REOPEN_DELAY_MS = 2_000L
     }
 }
 

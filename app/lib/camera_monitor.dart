@@ -15,10 +15,10 @@ class CameraMonitor extends ChangeNotifier {
 
   // Textos da notificação fixa. {facing} vira "frontal" ou "traseira".
   // Para mudar as palavras, edite estas duas constantes.
-  static const _notificationTitle = '📷 Câmera em uso por este app';
+  static const _notificationTitle = '';
   static const _notificationTextTemplate =
-      'Este aparelho está com a câmera {facing} ligada e pode transmitir '
-      'ao vivo para os aparelhos do grupo. Toque em "Parar câmera" para desligar.';
+      ''
+      '';
 
   bool _active = false;
   String? _error;
@@ -127,7 +127,8 @@ class CameraMonitor extends ChangeNotifier {
   Future<void> _requestNotificationPermission() async {
     await FlutterLocalNotificationsPlugin()
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
   }
 
@@ -135,8 +136,10 @@ class CameraMonitor extends ChangeNotifier {
   /// o Android mostrar a permissão; a captura de verdade é do serviço nativo.
   Future<bool> _requestMediaPermissions() async {
     try {
-      final s = await navigator.mediaDevices
-          .getUserMedia({'audio': true, 'video': true});
+      final s = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': true,
+      });
       for (final t in s.getTracks()) {
         t.stop();
       }

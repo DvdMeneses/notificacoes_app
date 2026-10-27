@@ -95,7 +95,6 @@ class CameraService : Service() {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(openPending)
-            .addAction(0, "Parar câmera", stopPending)
             .build()
     }
 
