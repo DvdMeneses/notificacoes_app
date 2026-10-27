@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // A senha (código do grupo) funciona como chave: só quem a conhece acha os
+    // aparelhos e as mensagens. Não dá para listar os grupos (sem regra em /groups).
+    match /groups/{groupCode}/{document=**} {
+      allow read, write: if request.auth != null && groupCode.size() >= 8;
+    }
+  }
+}

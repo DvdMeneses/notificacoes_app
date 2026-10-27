@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "718881249786",
+    "project_id": "notificacao-d73d4",
+    "storage_bucket": "notificacao-d73d4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718881249786:android:bcccaaa72f5bd24389ec43",
+        "android_client_info": {
+          "package_name": "com.notificador.notificador"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC6NNlePpszLU_5ZN1-OgSyXaH1RvHxc_s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

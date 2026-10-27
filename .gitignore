@@ -1,0 +1,23 @@
+# Segredos: nunca subir chaves de conta de serviço nem variáveis de ambiente
+**/service-account*
+.env
+*.env
+
+# Dependências e builds
+node_modules/
+app/build/
+app/.dart_tool/
+app/.pub-cache/
+app/.flutter-plugins-dependencies
+app/android/.gradle/
+app/android/local.properties
+app/android/**/build/
+app/android/hs_err_pid*.log
+*.log
+
+# IDE
+.idea/
+*.iml
+
+# Backend tem repositório próprio (notificacoes_back)
+backend/
